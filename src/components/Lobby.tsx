@@ -83,8 +83,8 @@ export const Lobby: React.FC<LobbyProps> = ({ assetStatus, onEnterRoom }) => {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-gradient-to-b from-[#2b150a] via-[#3b1d0e] to-[#231209] flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-[#3b1d0e]/95 border-2 border-[#a86a3a] rounded-2xl shadow-2xl overflow-hidden">
+    <div className="h-app-screen w-full overflow-y-auto bg-gradient-to-b from-[#2b150a] via-[#3b1d0e] to-[#231209] flex flex-col items-center p-3 sm:p-4 pb-safe">
+      <div className="my-auto w-full max-w-2xl bg-[#3b1d0e]/95 border-2 border-[#a86a3a] rounded-2xl shadow-2xl overflow-hidden flex-shrink-0">
         {/* Pixel-art wooden Soundtray Banner */}
         <div className="bg-[#1b0d06] border-b-2 border-[#a86a3a]/70 p-3 flex justify-center">
           <img

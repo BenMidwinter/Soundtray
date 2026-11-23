@@ -122,11 +122,90 @@ class AudioEngineService {
   private activeVoices = new Map<string, ActiveVoice>();
   private muted = false;
   private reverbEnabled = true;
+  private unlockListenersAttached = false;
+  private unlockedOnce = false;
+
+  private configureAudioSession(): void {
+    // Tell iOS/iPadOS Safari 16.4+ to treat Soundtray as a musical instrument / playback app
+    // so audio plays even if the iPad's Silent Mode bell is enabled.
+    const nav = navigator as Navigator & { audioSession?: { type: string } };
+    if (nav.audioSession) {
+      try {
+        if (nav.audioSession.type !== 'playback') {
+          nav.audioSession.type = 'playback';
+        }
+      } catch {
+        // ignore on browsers that disallow mutating audioSession
+      }
+    }
+  }
+
+  public attachGlobalUnlockListeners(): void {
+    if (this.unlockListenersAttached || typeof window === 'undefined') return;
+    this.unlockListenersAttached = true;
+
+    const handleGesture = () => {
+      this.unlock();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && this.ctx && this.ctx.state !== 'running') {
+        this.configureAudioSession();
+        void this.ctx.resume();
+      }
+    };
+
+    window.addEventListener('touchstart', handleGesture, { passive: true, capture: true });
+    window.addEventListener('touchend', handleGesture, { passive: true, capture: true });
+    window.addEventListener('pointerdown', handleGesture, { passive: true, capture: true });
+    window.addEventListener('keydown', handleGesture, { passive: true, capture: true });
+    document.addEventListener('visibilitychange', handleVisibility);
+  }
+
+  /**
+   * Unlocks Web Audio on iOS/iPadOS Safari by configuring AudioSession, resuming any
+   * 'suspended' or Apple-specific 'interrupted' context, and firing a 1-sample silent buffer.
+   */
+  public unlock(): void {
+    this.configureAudioSession();
+    if (this.ctx && this.ctx.state === 'running' && this.unlockedOnce) {
+      return;
+    }
+
+    this.init();
+    if (!this.ctx) return;
+
+    if (this.ctx.state !== 'running') {
+      void this.ctx.resume();
+    }
+
+    if (!this.unlockedOnce) {
+      try {
+        const silent = this.ctx.createBuffer(1, 1, 22050);
+        const src = this.ctx.createBufferSource();
+        src.buffer = silent;
+        src.connect(this.ctx.destination);
+        src.start(0);
+        this.unlockedOnce = true;
+      } catch {
+        // ignore if browser blocks pre-gesture silent pulse
+      }
+    }
+  }
 
   public init(): void {
+    this.configureAudioSession();
+    this.attachGlobalUnlockListeners();
+
     if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      try {
+        this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+      } catch {
+        this.ctx = new AudioCtx();
+      }
 
       this.compressor = this.ctx.createDynamicsCompressor();
       this.compressor.threshold.value = -14;
@@ -151,7 +230,8 @@ class AudioEngineService {
       this.noiseBuffer = this.createNoiseBuffer(this.ctx, 1.0);
     }
 
-    if (this.ctx.state === 'suspended') {
+    // Handle both 'suspended' and iOS/iPadOS Safari's 'interrupted' state
+    if (this.ctx.state !== 'running') {
       void this.ctx.resume();
     }
   }

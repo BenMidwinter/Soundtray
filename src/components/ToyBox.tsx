@@ -58,13 +58,13 @@ export const ToyBox: React.FC<ToyBoxProps> = ({
         key={def.id}
         type="button"
         onClick={() => onSelectAsset(isSelected ? null : def.id)}
-        className={`group flex-shrink-0 w-24 p-2 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${
+        className={`group flex-shrink-0 w-20 sm:w-24 p-1.5 sm:p-2 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${
           isSelected
             ? 'bg-[#e09f3e]/25 border-[#e09f3e] shadow-md -translate-y-0.5'
             : 'bg-[#281309]/90 border-[#8b552c]/50 hover:border-[#d4a373]'
         }`}
       >
-        <div className="w-14 h-12 flex items-center justify-center">
+        <div className="w-12 h-10 sm:w-14 sm:h-12 flex items-center justify-center">
           <img
             src={def.url}
             alt={def.name}
@@ -87,9 +87,9 @@ export const ToyBox: React.FC<ToyBoxProps> = ({
   const isBeanbagSelected = selectedAssetId?.startsWith('beanbag_') ?? false;
 
   return (
-    <div className="pointer-events-auto w-full max-w-5xl mx-auto bg-[#3b1d0e]/95 backdrop-blur-md border-2 border-[#a86a3a] rounded-2xl shadow-2xl px-4 py-3">
+    <div className="pointer-events-auto w-full max-w-5xl mx-auto bg-[#3b1d0e]/95 backdrop-blur-md border-2 border-[#a86a3a] rounded-2xl shadow-2xl px-3 py-2 sm:px-4 sm:py-2.5">
       {/* Header Row */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 mb-2">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -151,7 +151,7 @@ export const ToyBox: React.FC<ToyBoxProps> = ({
       </div>
 
       {/* Item Strip */}
-      <div className="flex items-stretch gap-2.5 overflow-x-auto pb-1">
+      <div className="flex items-stretch gap-2 overflow-x-auto pb-1 touch-pan-x">
         {activeTab === 'instrument' ? (
           instruments.map((inst) => renderCard(inst))
         ) : activeTab === 'game' ? (

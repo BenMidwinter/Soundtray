@@ -51,10 +51,61 @@ interface Drawable {
 
 export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stageContainerRef = useRef<HTMLDivElement>(null);
+  const [stageLayout, setStageLayout] = useState<{
+    width: number;
+    height: number;
+    topMargin: number;
+  } | null>(null);
   const propsRef = useRef(props);
   useEffect(() => {
     propsRef.current = props;
   }, [props]);
+
+  // Measure the available stage container and compute exact aspect-locked pixel dimensions.
+  // Avoids Safari flex + aspect-ratio + max-h-full overflow bugs across desktop & iPad orientations.
+  useEffect(() => {
+    const el = stageContainerRef.current;
+    if (!el) return;
+
+    const ASPECT = ROOM_LOGICAL_WIDTH / ROOM_LOGICAL_HEIGHT;
+    const recompute = () => {
+      const style = window.getComputedStyle(el);
+      const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      const availW = Math.max(0, el.clientWidth - padX);
+      const availH = Math.max(0, el.clientHeight - padY);
+      if (availW <= 0 || availH <= 0) return;
+
+      const maxW = Math.min(availW, 1680);
+      let width = maxW;
+      let height = width / ASPECT;
+      if (height > availH) {
+        height = availH;
+        width = height * ASPECT;
+      }
+
+      // Keep the playable room comfortably near the top bar so tall/4:3 screens (like iPad)
+      // never develop a large empty gap above the room.
+      const spareH = Math.max(0, availH - height);
+      const topMargin = Math.min(20, Math.floor(spareH / 2));
+
+      setStageLayout({
+        width: Math.floor(width),
+        height: Math.floor(height),
+        topMargin,
+      });
+    };
+
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    window.addEventListener('orientationchange', recompute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('orientationchange', recompute);
+    };
+  }, []);
 
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   const [overTrash, setOverTrash] = useState(false);
@@ -899,9 +950,25 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
     : null;
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4 select-none">
-      {/* Aspect-locked stage matching background.png (1408x673) */}
-      <div className="relative w-full max-w-[1408px] max-h-full aspect-[2816/1346] rounded-2xl overflow-hidden border-2 border-[#a86a3a]/80 shadow-2xl bg-[#1b0d06]">
+    <div
+      ref={stageContainerRef}
+      className="relative w-full h-full flex items-start justify-center px-2 pt-1.5 pb-1 sm:px-3 sm:pt-2 select-none overflow-hidden"
+    >
+      {/* Aspect-locked stage matching background.png (1408x673), sized via ResizeObserver */}
+      <div
+        style={
+          stageLayout
+            ? {
+                width: `${stageLayout.width}px`,
+                height: `${stageLayout.height}px`,
+                marginTop: `${stageLayout.topMargin}px`,
+              }
+            : undefined
+        }
+        className={`relative rounded-xl sm:rounded-2xl overflow-hidden border-2 border-[#a86a3a]/80 shadow-2xl bg-[#1b0d06] ${
+          stageLayout ? '' : 'w-full max-w-[1408px] aspect-[2816/1346]'
+        }`}
+      >
         <canvas
           ref={canvasRef}
           width={ROOM_LOGICAL_WIDTH}

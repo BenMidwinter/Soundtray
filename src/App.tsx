@@ -198,7 +198,7 @@ export const App: React.FC = () => {
     if (!validateDisplayName(config.name).valid || !validateRoomCode(config.roomId).valid) {
       return;
     }
-    audioEngine.init();
+    audioEngine.unlock();
 
     const localPlayer: PlayerState = {
       id: localPlayerId,
@@ -327,14 +327,14 @@ export const App: React.FC = () => {
   const playerCount = Object.keys(snapshot.players).length;
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#1b0d06] text-[#faedcd] overflow-hidden">
+    <div className="h-app-screen w-screen flex flex-col bg-[#1b0d06] text-[#faedcd] overflow-hidden">
       {/* Top Bar */}
-      <header className="flex-shrink-0 bg-[#3b1d0e] border-b-2 border-[#a86a3a]/70 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 z-20 shadow-md">
-        <div className="flex items-center gap-2.5">
-          <span className="font-black tracking-wide text-base sm:text-lg text-[#e09f3e]">
+      <header className="flex-shrink-0 bg-[#3b1d0e] border-b-2 border-[#a86a3a]/70 px-2.5 sm:px-3.5 py-1.5 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 z-20 shadow-md">
+        <div className="flex items-center gap-2">
+          <span className="font-black tracking-wide text-sm sm:text-base text-[#e09f3e]">
             SOUNDTRAY
           </span>
-          <span className="px-2 py-0.5 rounded-md bg-[#231209] border border-[#8b552c] text-xs font-mono text-[#faedcd]">
+          <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-[#231209] border border-[#8b552c] text-[11px] sm:text-xs font-mono text-[#faedcd]">
             {snapshot.roomId}
           </span>
           <span
@@ -355,8 +355,8 @@ export const App: React.FC = () => {
           </span>
         </div>
 
-        {/* Center Controls: Mode + Global Scale + Time of Day */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Center Controls: Mode + Global Scale + Time of Day + Pru */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {/* Play / Build Toggle */}
           <div className="inline-flex rounded-xl bg-[#231209] p-0.5 border border-[#8b552c]">
             <button
@@ -365,7 +365,7 @@ export const App: React.FC = () => {
                 setBuildMode(false);
                 setSelectedAssetId(null);
               }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
                 !buildMode
                   ? 'bg-[#e09f3e] text-[#231209]'
                   : 'text-[#d4a373] hover:text-[#faedcd]'
@@ -382,14 +382,15 @@ export const App: React.FC = () => {
                 audioEngine.releaseAllForSource(localPlayerId);
                 setBuildMode(true);
               }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
                 buildMode
                   ? 'bg-[#e09f3e] text-[#231209]'
                   : 'text-[#d4a373] hover:text-[#faedcd]'
               }`}
             >
               <Hammer className="w-3.5 h-3.5" />
-              Toy Box (B)
+              <span>Toy Box</span>
+              <span className="hidden xl:inline">(B)</span>
             </button>
           </div>
 
@@ -424,7 +425,7 @@ export const App: React.FC = () => {
                   scaleId: e.target.value as ScaleId,
                 })
               }
-              className="bg-transparent text-xs font-medium text-[#faedcd] focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-medium text-[#faedcd] focus:outline-none cursor-pointer max-w-[116px] sm:max-w-none"
             >
               {Object.values(SCALES).map((s) => (
                 <option key={s.id} value={s.id} className="bg-[#2b150a] text-[#faedcd]">
@@ -453,14 +454,14 @@ export const App: React.FC = () => {
                       timeOfDay: id,
                     })
                   }
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                  className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
                     active
                       ? 'bg-[#e09f3e] text-[#231209]'
                       : 'text-[#d4a373] hover:text-[#faedcd]'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
-                  <span className="hidden xl:inline">{label}</span>
+                  <span className="hidden 2xl:inline">{label}</span>
                 </button>
               );
             })}
@@ -482,7 +483,7 @@ export const App: React.FC = () => {
                 ? 'Pru is in the room (click to toggle off for everyone)'
                 : 'Pru is resting outside (click to invite her back)'
             }
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[11px] font-bold transition-colors ${
               snapshot.settings.pruEnabled
                 ? 'bg-[#231209] border-[#e09f3e]/80 text-[#faedcd]'
                 : 'bg-[#231209]/70 border-[#8b552c] text-[#d4a373]/80 hover:text-[#faedcd]'
@@ -509,21 +510,21 @@ export const App: React.FC = () => {
         </div>
 
         {/* Right Controls: Presets, Session Events, Mute, Exit Door */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5">
           <button
             type="button"
             onClick={() => setShowPresets(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#231209] hover:bg-[#2f180c] border border-[#8b552c] text-xs font-semibold text-[#faedcd]"
+            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[#231209] hover:bg-[#2f180c] border border-[#8b552c] text-xs font-semibold text-[#faedcd]"
             title="Load or save room layout presets"
           >
             <LayoutGrid className="w-3.5 h-3.5 text-[#e09f3e]" />
-            <span className="hidden sm:inline">Presets</span>
+            <span className="hidden xl:inline">Presets</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowSessionLog((prev) => !prev)}
-            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+            className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
               showSessionLog
                 ? 'bg-[#e09f3e] text-[#231209] border-[#faedcd]'
                 : 'bg-[#231209] hover:bg-[#2f180c] border-[#8b552c] text-[#faedcd]'
@@ -531,13 +532,13 @@ export const App: React.FC = () => {
             title="Toggle structured session event log"
           >
             <ClipboardList className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Events</span>
+            <span className="hidden xl:inline">Events</span>
           </button>
 
           <button
             type="button"
             onClick={handleToggleMute}
-            className="p-2 rounded-lg bg-[#231209] hover:bg-[#2f180c] border border-[#8b552c] text-[#faedcd]"
+            className="p-1.5 rounded-lg bg-[#231209] hover:bg-[#2f180c] border border-[#8b552c] text-[#faedcd]"
             title={muted ? 'Unmute audio' : 'Mute audio'}
           >
             {muted ? (
@@ -550,130 +551,136 @@ export const App: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowExitModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#5c2c16] hover:bg-[#7c3c1f] border border-[#a86a3a] text-xs font-bold text-[#faedcd]"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#5c2c16] hover:bg-[#7c3c1f] border border-[#a86a3a] text-xs font-bold text-[#faedcd]"
             title="Close the room door (clinical session boundary)"
           >
             <DoorOpen className="w-3.5 h-3.5 text-[#e09f3e]" />
-            <span className="hidden sm:inline">Exit Door</span>
+            <span className="hidden sm:inline">Exit</span>
+            <span className="hidden xl:inline">Door</span>
           </button>
         </div>
       </header>
 
-      {/* Room Canvas Stage */}
-      <main className="relative flex-1 min-h-0 flex items-center justify-center">
-        <GameCanvas
-          localPlayerId={localPlayerId}
-          players={snapshot.players}
-          items={snapshot.items}
-          pet={snapshot.pet}
-          pruEnabled={snapshot.settings.pruEnabled}
-          timeOfDay={snapshot.settings.timeOfDay}
-          pruHeartAt={snapshot.pruHeartAt}
-          buildMode={buildMode}
-          selectedAssetId={selectedAssetId}
-          placeFlipped={placeFlipped}
-          activeInstrumentId={activeInstrumentId}
-          isModalOpen={isModalOpen}
-          onUpdateLocalPlayer={(player) => roomTransport.updateLocalPlayer(player)}
-          onUpdatePet={(pet) => roomTransport.updatePet(pet)}
-          onPlaceItem={(assetId, x, y, flipped) => {
-            void assetLoader.loadOne(assetId);
-            roomTransport.placeItem({
-              id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              assetId,
-              x,
-              y,
-              flipped: flipped || undefined,
-            });
-          }}
-          onMoveItem={(itemId, x, y) => roomTransport.moveItem(itemId, x, y)}
-          onFinishMoveItem={(itemId) => {
-            const moved = snapshot.items.find((i) => i.id === itemId);
-            if (!moved) return;
-            const label = ASSET_MAP[moved.assetId]?.name ?? moved.assetId;
-            roomTransport.recordEvent(
-              'ITEM_MOVE',
-              `${snapshot.players[localPlayerId]?.name || 'Guest'} moved ${label}`,
-              { assetId: moved.assetId }
-            );
-          }}
-          onFlipItem={(itemId) => roomTransport.flipItem(itemId)}
-          onRemoveItem={(itemId) => roomTransport.removeItem(itemId)}
-          onOpenInstrument={(itemId) => {
-            audioEngine.init();
-            const target = snapshot.items.find((i) => i.id === itemId);
-            const label = target ? ASSET_MAP[target.assetId]?.name ?? target.assetId : 'instrument';
-            roomTransport.setLocalActiveInstrument(itemId);
-            roomTransport.recordEvent(
-              'INSTRUMENT_OPEN',
-              `${snapshot.players[localPlayerId]?.name || 'Guest'} started playing ${label}`,
-              { assetId: target?.assetId }
-            );
-            setActiveInstrumentId(itemId);
-          }}
-          onOpenGame={(gameId) => {
-            audioEngine.init();
-            setActiveGame(gameId);
-          }}
-          onInteractPru={() => {
-            audioEngine.playUiCue('pru_happy');
-            roomTransport.interactWithPru();
-          }}
-          onClearSelectedAsset={() => setSelectedAssetId(null)}
-          onToast={showToast}
-        />
+      {/* Main Content: Playable Room Stage + Dedicated Bottom Dock Band */}
+      <main className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="relative flex-1 min-h-0 w-full">
+          <GameCanvas
+            localPlayerId={localPlayerId}
+            players={snapshot.players}
+            items={snapshot.items}
+            pet={snapshot.pet}
+            pruEnabled={snapshot.settings.pruEnabled}
+            timeOfDay={snapshot.settings.timeOfDay}
+            pruHeartAt={snapshot.pruHeartAt}
+            buildMode={buildMode}
+            selectedAssetId={selectedAssetId}
+            placeFlipped={placeFlipped}
+            activeInstrumentId={activeInstrumentId}
+            isModalOpen={isModalOpen}
+            onUpdateLocalPlayer={(player) => roomTransport.updateLocalPlayer(player)}
+            onUpdatePet={(pet) => roomTransport.updatePet(pet)}
+            onPlaceItem={(assetId, x, y, flipped) => {
+              void assetLoader.loadOne(assetId);
+              roomTransport.placeItem({
+                id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                assetId,
+                x,
+                y,
+                flipped: flipped || undefined,
+              });
+            }}
+            onMoveItem={(itemId, x, y) => roomTransport.moveItem(itemId, x, y)}
+            onFinishMoveItem={(itemId) => {
+              const moved = snapshot.items.find((i) => i.id === itemId);
+              if (!moved) return;
+              const label = ASSET_MAP[moved.assetId]?.name ?? moved.assetId;
+              roomTransport.recordEvent(
+                'ITEM_MOVE',
+                `${snapshot.players[localPlayerId]?.name || 'Guest'} moved ${label}`,
+                { assetId: moved.assetId }
+              );
+            }}
+            onFlipItem={(itemId) => roomTransport.flipItem(itemId)}
+            onRemoveItem={(itemId) => roomTransport.removeItem(itemId)}
+            onOpenInstrument={(itemId) => {
+              audioEngine.unlock();
+              const target = snapshot.items.find((i) => i.id === itemId);
+              const label = target ? ASSET_MAP[target.assetId]?.name ?? target.assetId : 'instrument';
+              roomTransport.setLocalActiveInstrument(itemId);
+              roomTransport.recordEvent(
+                'INSTRUMENT_OPEN',
+                `${snapshot.players[localPlayerId]?.name || 'Guest'} started playing ${label}`,
+                { assetId: target?.assetId }
+              );
+              setActiveInstrumentId(itemId);
+            }}
+            onOpenGame={(gameId) => {
+              audioEngine.unlock();
+              setActiveGame(gameId);
+            }}
+            onInteractPru={() => {
+              audioEngine.unlock();
+              audioEngine.playUiCue('pru_happy');
+              roomTransport.interactWithPru();
+            }}
+            onClearSelectedAsset={() => setSelectedAssetId(null)}
+            onToast={showToast}
+          />
 
-        {/* Subtle Play Mode Hint */}
-        {!buildMode && !activeInstrumentId && !isModalOpen && (
-          <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 px-3.5 py-1.5 rounded-full bg-[#231209]/85 border border-[#8b552c]/70 text-[11px] text-[#d4a373] shadow-lg">
-            Move with <strong className="text-[#faedcd]">WASD</strong> or{' '}
-            <strong className="text-[#faedcd]">Click/Tap</strong> the floor · Walk up to an
-            instrument or Connect 4 and press <strong className="text-[#faedcd]">Space</strong> (or
-            tap it)
-          </div>
-        )}
+          {/* Toast Notification */}
+          {toast && (
+            <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-[#2b150a]/95 border border-[#e09f3e] text-xs font-semibold text-[#faedcd] shadow-xl z-30">
+              {toast}
+            </div>
+          )}
+        </div>
 
-        {/* Toast Notification */}
-        {toast && (
-          <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-[#2b150a]/95 border border-[#e09f3e] text-xs font-semibold text-[#faedcd] shadow-xl z-30">
-            {toast}
+        {/* Dedicated Bottom Dock Band (never clipped on iPad Safari, never covers the room floor) */}
+        {buildMode ? (
+          <div className="flex-shrink-0 w-full px-2 sm:px-3 pt-1 pb-safe z-20">
+            <ToyBox
+              selectedAssetId={selectedAssetId}
+              placeFlipped={placeFlipped}
+              onSelectAsset={(id) => {
+                if (id) void assetLoader.loadOne(id);
+                setSelectedAssetId(id);
+              }}
+              onTogglePlaceFlipped={() => setPlaceFlipped((prev) => !prev)}
+              onTidyRoom={() => {
+                roomTransport.tidyRoom();
+                showToast('Room tidied up.');
+              }}
+              itemCount={snapshot.items.length}
+            />
           </div>
-        )}
-
-        {/* Bottom Dock: Build Mode Toy Box OR Play Mode Instrument Dock */}
-        {(buildMode || (activeItem && activeAssetDef?.instrumentVoice)) && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-20">
-            {buildMode ? (
-              <ToyBox
-                selectedAssetId={selectedAssetId}
-                placeFlipped={placeFlipped}
-                onSelectAsset={(id) => {
-                  if (id) void assetLoader.loadOne(id);
-                  setSelectedAssetId(id);
-                }}
-                onTogglePlaceFlipped={() => setPlaceFlipped((prev) => !prev)}
-                onTidyRoom={() => {
-                  roomTransport.tidyRoom();
-                  showToast('Room tidied up.');
-                }}
-                itemCount={snapshot.items.length}
-              />
-            ) : activeItem && activeAssetDef?.instrumentVoice ? (
-              <InstrumentDock
-                instrumentName={activeAssetDef.name}
-                instrumentVoice={activeAssetDef.instrumentVoice}
-                settings={snapshot.settings}
-                reverbEnabled={snapshot.settings.reverbEnabled}
-                onToggleReverb={handleToggleReverb}
-                epianoParams={epianoParams}
-                onChangeEPianoParams={setEPianoParams}
-                onTriggerNoteOn={handleTriggerNoteOn}
-                onTriggerNoteOff={handleTriggerNoteOff}
-                onClose={handleCloseInstrument}
-              />
-            ) : null}
+        ) : activeItem && activeAssetDef?.instrumentVoice ? (
+          <div className="flex-shrink-0 w-full px-2 sm:px-3 pt-1 pb-safe z-20">
+            <InstrumentDock
+              instrumentName={activeAssetDef.name}
+              instrumentVoice={activeAssetDef.instrumentVoice}
+              settings={snapshot.settings}
+              reverbEnabled={snapshot.settings.reverbEnabled}
+              onToggleReverb={handleToggleReverb}
+              epianoParams={epianoParams}
+              onChangeEPianoParams={setEPianoParams}
+              onTriggerNoteOn={handleTriggerNoteOn}
+              onTriggerNoteOff={handleTriggerNoteOff}
+              onClose={handleCloseInstrument}
+            />
           </div>
-        )}
+        ) : !isModalOpen ? (
+          <div className="flex-shrink-0 w-full px-2 pt-0.5 pb-safe flex justify-center">
+            <div className="pointer-events-none px-3 py-1 rounded-full bg-[#231209]/90 border border-[#8b552c]/70 text-[11px] text-[#d4a373] shadow text-center">
+              <strong className="text-[#faedcd]">Tap</strong> the floor to move · Walk up and{' '}
+              <strong className="text-[#faedcd]">tap</strong> an instrument, game, or Pru
+              <span className="hidden lg:inline">
+                {' '}
+                · Keyboard: <strong className="text-[#faedcd]">WASD</strong> +{' '}
+                <strong className="text-[#faedcd]">Space</strong>
+              </span>
+            </div>
+          </div>
+        ) : null}
       </main>
 
       {/* Modals & Drawers */}

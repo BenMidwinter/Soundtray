@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Music, Sliders, Waves, X } from 'lucide-react';
 import {
+  audioEngine,
   DRUM_PAD_LABELS,
   INSTRUMENT_RANGES,
   midiToNoteName,
@@ -145,7 +146,12 @@ export const InstrumentDock: React.FC<InstrumentDockProps> = ({
 
   const handlePointerDown = (idx: number, e: React.PointerEvent) => {
     e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    audioEngine.unlock();
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // ignore if capture is unavailable on touch device
+    }
     if (!activeKeyMapRef.current.has(idx)) {
       activeKeyMapRef.current.set(idx, octaveShift);
       onTriggerNoteOn(idx, octaveShift);
@@ -165,26 +171,31 @@ export const InstrumentDock: React.FC<InstrumentDockProps> = ({
   const canShiftOctave = !isPercussive && range.maxOctaveShift > range.minOctaveShift;
 
   return (
-    <div className="pointer-events-auto w-full max-w-4xl mx-auto bg-[#2b150a]/95 backdrop-blur-md border-2 border-[#e09f3e] rounded-2xl shadow-2xl p-3.5 sm:p-4 space-y-2.5">
+    <div className="pointer-events-auto w-full max-w-4xl mx-auto bg-[#2b150a]/95 backdrop-blur-md border-2 border-[#e09f3e] rounded-2xl shadow-2xl p-2.5 sm:p-3 space-y-2">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#e09f3e]/20 border border-[#e09f3e] flex items-center justify-center">
-            <Music className="w-4 h-4 text-[#e09f3e]" />
+      <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#e09f3e]/20 border border-[#e09f3e] flex items-center justify-center flex-shrink-0">
+            <Music className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#e09f3e]" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-[#faedcd] leading-tight">{instrumentName}</h2>
-            <p className="text-[11px] text-[#d4a373]">
+            <h2 className="text-xs sm:text-sm font-bold text-[#faedcd] leading-tight">
+              {instrumentName}
+            </h2>
+            <p className="text-[10px] sm:text-[11px] text-[#d4a373] leading-tight">
               {isPercussive
-                ? 'Tap pads or use keys A–K'
-                : `${midiToNoteName(effectiveRootMidi)} ${
-                    SCALES[settings.scaleId].label
-                  } · Upper row Q–I · Lower row A–K${canShiftOctave ? ' · Z/X shift octave' : ''}`}
+                ? 'Tap pads or press A–K'
+                : `${midiToNoteName(effectiveRootMidi)} ${SCALES[settings.scaleId].label}`}
+              {!isPercussive && (
+                <span className="hidden md:inline">
+                  {` · Upper Q–I · Lower A–K${canShiftOctave ? ' · Z/X octave' : ''}`}
+                </span>
+              )}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {/* Per-Instrument Octave Shifter */}
           {canShiftOctave && (
             <div className="inline-flex items-center rounded-lg bg-[#1f0f07] border border-[#8b552c] overflow-hidden">
@@ -197,7 +208,7 @@ export const InstrumentDock: React.FC<InstrumentDockProps> = ({
               >
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
-              <span className="px-2 text-[11px] font-mono font-bold text-[#e09f3e]">
+              <span className="px-1.5 sm:px-2 text-[11px] font-mono font-bold text-[#e09f3e]">
                 Oct {octaveShift >= 0 ? `+${octaveShift}` : octaveShift}
               </span>
               <button
@@ -216,7 +227,7 @@ export const InstrumentDock: React.FC<InstrumentDockProps> = ({
           <button
             type="button"
             onClick={onToggleReverb}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+            className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold border transition-colors ${
               reverbEnabled
                 ? 'bg-[#e09f3e]/20 text-[#faedcd] border-[#e09f3e]'
                 : 'bg-[#1f0f07] text-[#d4a373] border-[#8b552c]'
@@ -224,23 +235,23 @@ export const InstrumentDock: React.FC<InstrumentDockProps> = ({
             title="Global room reverb (shared with everyone in the room)"
           >
             <Waves className="w-3.5 h-3.5 text-[#e09f3e]" />
-            Room Reverb
+            <span>Reverb</span>
           </button>
 
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#5c2c16] hover:bg-[#7c3c1f] text-xs font-semibold text-[#faedcd] border border-[#a86a3a]"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#5c2c16] hover:bg-[#7c3c1f] text-[11px] sm:text-xs font-semibold text-[#faedcd] border border-[#a86a3a]"
           >
             <X className="w-3.5 h-3.5" />
-            Step Back (Esc)
+            <span>Step Back</span>
           </button>
         </div>
       </div>
 
       {/* E. Piano Synth Controls */}
       {instrumentVoice === 'epiano' && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#1f0f07] border border-[#8b552c]/60 rounded-xl p-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 bg-[#1f0f07] border border-[#8b552c]/60 rounded-xl p-2">
           <label className="text-[11px] text-[#d4a373] flex flex-col gap-1">
             <span className="flex justify-between">
               <span className="inline-flex items-center gap-1">
@@ -339,7 +350,7 @@ export const InstrumentDock: React.FC<InstrumentDockProps> = ({
                 onPointerDown={(e) => handlePointerDown(idx, e)}
                 onPointerUp={() => handlePointerUp(idx)}
                 onPointerCancel={() => handlePointerUp(idx)}
-                className={`h-14 sm:h-16 rounded-xl border-2 flex flex-col items-center justify-between p-1.5 transition-transform touch-none ${
+                className={`h-11 sm:h-12 lg:h-14 rounded-xl border-2 flex flex-col items-center justify-between p-1 sm:p-1.5 transition-transform touch-none ${
                   isPressed
                     ? 'bg-[#e09f3e] border-[#faedcd] text-[#231209] scale-95 shadow-inner'
                     : 'bg-[#f4e4bc] hover:bg-[#fefae0] border-[#a86a3a] text-[#3b1d0e]'
@@ -373,8 +384,8 @@ export const InstrumentDock: React.FC<InstrumentDockProps> = ({
               onPointerUp={() => handlePointerUp(idx)}
               onPointerCancel={() => handlePointerUp(idx)}
               className={`${
-                isPercussive ? 'h-20 sm:h-24' : 'h-16 sm:h-20'
-              } rounded-xl border-2 flex flex-col items-center justify-between p-1.5 sm:p-2 transition-transform touch-none ${
+                isPercussive ? 'h-16 sm:h-20' : 'h-12 sm:h-14 lg:h-16'
+              } rounded-xl border-2 flex flex-col items-center justify-between p-1 sm:p-1.5 transition-transform touch-none ${
                 isPressed
                   ? 'bg-[#e09f3e] border-[#faedcd] text-[#231209] scale-95 shadow-inner'
                   : isPercussive

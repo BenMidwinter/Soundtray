@@ -48,7 +48,7 @@ export const TicTacToeModal: React.FC<TicTacToeModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#3b1d0e] border-2 border-[#e09f3e] rounded-2xl shadow-2xl p-5 space-y-4 text-[#faedcd]"
+        className="w-full max-w-md max-h-[92dvh] overflow-y-auto bg-[#3b1d0e] border-2 border-[#e09f3e] rounded-2xl shadow-2xl p-4 sm:p-5 space-y-3.5 text-[#faedcd]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
