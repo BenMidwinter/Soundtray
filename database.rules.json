@@ -1,0 +1,29 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      ".read": false,
+      ".write": false,
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "players": {
+          "$playerId": {
+            ".write": "auth != null && (!newData.exists() || newData.child('uid').val() === auth.uid || !data.exists())"
+          }
+        },
+        "audioSignals": {
+          "$signalId": {
+            ".validate": "newData.hasChildren(['type', 'sourceId', 'instrument', 'midiNote', 'timestamp'])"
+          }
+        },
+        "events": {
+          "$eventId": {
+            ".validate": "newData.hasChildren(['id', 'type', 'actorName', 'summary', 'timestamp'])"
+          }
+        }
+      }
+    }
+  }
+}
