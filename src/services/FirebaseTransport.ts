@@ -553,6 +553,14 @@ export class FirebaseTransport implements RoomTransport {
           `${actor} turned room reverb ${settings.reverbEnabled ? 'on' : 'off'}`,
           { reverbEnabled: settings.reverbEnabled }
         );
+      } else if (prev.pruEnabled !== settings.pruEnabled) {
+        this.recordEvent(
+          'SETTINGS_CHANGED',
+          settings.pruEnabled
+            ? `${actor} invited Pru into the room`
+            : `${actor} let Pru rest outside`,
+          { pruEnabled: settings.pruEnabled }
+        );
       } else if (prev.scaleId !== settings.scaleId || prev.rootMidi !== settings.rootMidi) {
         this.recordEvent('SETTINGS_CHANGED', `${actor} changed scale to ${settings.scaleId}`, {
           rootMidi: settings.rootMidi,

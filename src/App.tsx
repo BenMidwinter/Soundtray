@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ClipboardList,
+  Dog,
   DoorOpen,
   Hammer,
   LayoutGrid,
@@ -33,6 +34,7 @@ import {
   SCALES,
 } from './services/AudioEngine';
 import {
+  createDefaultSettings,
   createEmptyConnect4,
   createEmptyTicTacToe,
   createInitialPet,
@@ -71,7 +73,7 @@ export const App: React.FC = () => {
     roomId: '',
     players: {},
     items: INITIAL_ROOM_ITEMS,
-    settings: { rootMidi: 60, scaleId: 'pentatonic_major', timeOfDay: 'day', reverbEnabled: true },
+    settings: createDefaultSettings(),
     connect4: createEmptyConnect4(),
     tictactoe: createEmptyTicTacToe(),
     soundMemory: createShuffledSoundMemory(),
@@ -459,6 +461,47 @@ export const App: React.FC = () => {
               );
             })}
           </div>
+
+          {/* Synced Pru Toggle Switch */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={snapshot.settings.pruEnabled}
+            onClick={() =>
+              roomTransport.updateSettings({
+                ...snapshot.settings,
+                pruEnabled: !snapshot.settings.pruEnabled,
+              })
+            }
+            title={
+              snapshot.settings.pruEnabled
+                ? 'Pru is in the room (click to toggle off for everyone)'
+                : 'Pru is resting outside (click to invite her back)'
+            }
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-colors ${
+              snapshot.settings.pruEnabled
+                ? 'bg-[#231209] border-[#e09f3e]/80 text-[#faedcd]'
+                : 'bg-[#231209]/70 border-[#8b552c] text-[#d4a373]/80 hover:text-[#faedcd]'
+            }`}
+          >
+            <Dog
+              className={`w-3.5 h-3.5 ${
+                snapshot.settings.pruEnabled ? 'text-[#e09f3e]' : 'text-[#8b552c]'
+              }`}
+            />
+            <span>Pru</span>
+            <span
+              className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                snapshot.settings.pruEnabled ? 'bg-[#e09f3e]' : 'bg-[#5c2c16]'
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-[#231209] shadow transition-transform ${
+                  snapshot.settings.pruEnabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                }`}
+              />
+            </span>
+          </button>
         </div>
 
         {/* Right Controls: Presets, Session Events, Mute, Exit Door */}
@@ -519,6 +562,7 @@ export const App: React.FC = () => {
           players={snapshot.players}
           items={snapshot.items}
           pet={snapshot.pet}
+          pruEnabled={snapshot.settings.pruEnabled}
           timeOfDay={snapshot.settings.timeOfDay}
           pruHeartAt={snapshot.pruHeartAt}
           buildMode={buildMode}

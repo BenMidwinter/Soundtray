@@ -81,13 +81,6 @@ export const Lobby: React.FC<LobbyProps> = ({ assetStatus, onEnterRoom }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 md:p-7 space-y-5">
-          <div className="text-center space-y-1">
-            <p className="text-[#faedcd]/90 text-sm">
-              A warm, latency-free virtual music therapy room. Open this URL in two tabs with the
-              same Room Code to test live multiplayer sync.
-            </p>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
             {/* Avatar Preview Card */}
             <div className="md:col-span-5 flex flex-col items-center bg-[#281309] border border-[#8b552c]/60 rounded-xl p-4">

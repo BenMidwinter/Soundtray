@@ -326,6 +326,18 @@ export class LocalBroadcastTransport implements RoomTransport {
         ),
         true
       );
+    } else if (prev.pruEnabled !== settings.pruEnabled) {
+      this.appendEvent(
+        this.createEvent(
+          'SETTINGS_CHANGED',
+          actor,
+          settings.pruEnabled
+            ? `${actor} invited Pru into the room`
+            : `${actor} let Pru rest outside`,
+          { pruEnabled: settings.pruEnabled }
+        ),
+        true
+      );
     } else if (prev.scaleId !== settings.scaleId || prev.rootMidi !== settings.rootMidi) {
       this.appendEvent(
         this.createEvent('SETTINGS_CHANGED', actor, `${actor} changed scale to ${settings.scaleId}`, {

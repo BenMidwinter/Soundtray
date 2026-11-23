@@ -135,6 +135,7 @@ export interface RoomSettings {
   scaleId: ScaleId;
   timeOfDay: TimeOfDay;
   reverbEnabled: boolean;
+  pruEnabled: boolean;
 }
 
 export type Connect4Cell = 0 | 1 | 2; // 0 = empty, 1 = Red, 2 = Yellow

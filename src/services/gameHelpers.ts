@@ -18,6 +18,7 @@ export function createDefaultSettings(): RoomSettings {
     scaleId: 'pentatonic_major',
     timeOfDay: 'day',
     reverbEnabled: true,
+    pruEnabled: true,
   };
 }
 
@@ -219,6 +220,7 @@ export function sanitizeSettings(raw: Partial<RoomSettings> | null | undefined):
     scaleId: raw.scaleId ?? def.scaleId,
     timeOfDay: raw.timeOfDay ?? def.timeOfDay,
     reverbEnabled: typeof raw.reverbEnabled === 'boolean' ? raw.reverbEnabled : def.reverbEnabled,
+    pruEnabled: typeof raw.pruEnabled === 'boolean' ? raw.pruEnabled : def.pruEnabled,
   };
 }
 

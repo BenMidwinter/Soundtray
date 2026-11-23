@@ -22,6 +22,7 @@ interface GameCanvasProps {
   players: Record<string, PlayerState>;
   items: RoomItem[];
   pet: PetState;
+  pruEnabled: boolean;
   timeOfDay: TimeOfDay;
   pruHeartAt?: number;
   buildMode: boolean;
@@ -254,6 +255,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
         localPlayerId,
         players,
         items,
+        pruEnabled,
         timeOfDay,
         pruHeartAt,
         buildMode,
@@ -350,9 +352,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
       }
 
       // 3. Update Pru AI (designated keeper publishes wandering transitions; all peers smoothly walk her)
-      const sortedIds = Object.keys(players).sort();
-      const isPruKeeper = sortedIds.length === 0 || sortedIds[0] === localPlayerId;
-      updatePru(pruRef.current, dt, now, isPruKeeper);
+      if (pruEnabled) {
+        const sortedIds = Object.keys(players).sort();
+        const isPruKeeper = sortedIds.length === 0 || sortedIds[0] === localPlayerId;
+        updatePru(pruRef.current, dt, now, isPruKeeper);
+      }
 
       // 4. Render Scene
       const canvas = canvasRef.current;
@@ -362,6 +366,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
           localPlayerId,
           players,
           items,
+          pruEnabled,
           pruHeartAt,
           buildMode,
           selectedAssetId,
@@ -438,6 +443,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
       localPlayerId: string;
       players: Record<string, PlayerState>;
       items: RoomItem[];
+      pruEnabled: boolean;
       pruHeartAt?: number;
       buildMode: boolean;
       selectedAssetId: string | null;
@@ -608,25 +614,27 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
     }
 
     // Add Pru (fixed crisp scale + synced floating pixel heart when greeted!)
-    const pru = pruRef.current;
-    drawables.push({
-      y: pru.y,
-      draw: (c) => {
-        const px = pru.x * W;
-        const py = pru.y * H;
-        drawPru(c, pru, px, py, 1.0, now);
-        if (state.pruHeartAt && now - state.pruHeartAt < 1400) {
-          const age = (now - state.pruHeartAt) / 1400;
-          c.save();
-          c.globalAlpha = 1 - age;
-          c.fillStyle = '#f43f5e';
-          c.font = 'bold 18px sans-serif';
-          c.textAlign = 'center';
-          c.fillText('♥', px, py - 42 - age * 26);
-          c.restore();
-        }
-      },
-    });
+    if (state.pruEnabled) {
+      const pru = pruRef.current;
+      drawables.push({
+        y: pru.y,
+        draw: (c) => {
+          const px = pru.x * W;
+          const py = pru.y * H;
+          drawPru(c, pru, px, py, 1.0, now);
+          if (state.pruHeartAt && now - state.pruHeartAt < 1400) {
+            const age = (now - state.pruHeartAt) / 1400;
+            c.save();
+            c.globalAlpha = 1 - age;
+            c.fillStyle = '#f43f5e';
+            c.font = 'bold 18px sans-serif';
+            c.textAlign = 'center';
+            c.fillText('♥', px, py - 42 - age * 26);
+            c.restore();
+          }
+        },
+      });
+    }
 
     // Add Players (fixed crisp scale)
     for (const p of Object.values(state.players)) {
@@ -763,6 +771,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
     pointerNormRef.current = pt;
 
     const {
+      pruEnabled,
       buildMode,
       selectedAssetId,
       placeFlipped,
@@ -810,13 +819,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
     }
 
     // PLAY MODE:
-    const pru = pruRef.current;
-    if (Math.hypot(pt.x - pru.x, (pt.y - pru.y) * 1.5) < 0.048) {
-      pru.behavior = 'idle';
-      pru.stateEndsAt = performance.now() + 4500;
-      onInteractPru();
-      onToast('Pru wags her tail happily!');
-      return;
+    if (pruEnabled) {
+      const pru = pruRef.current;
+      if (Math.hypot(pt.x - pru.x, (pt.y - pru.y) * 1.5) < 0.048) {
+        pru.behavior = 'idle';
+        pru.stateEndsAt = performance.now() + 4500;
+        onInteractPru();
+        onToast('Pru wags her tail happily!');
+        return;
+      }
     }
 
     const hit = hitTestItem(pt);
