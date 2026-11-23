@@ -26,6 +26,7 @@ import { SoundMemoryModal } from './components/SoundMemoryModal';
 import { TicTacToeModal } from './components/TicTacToeModal';
 import { ToyBox } from './components/ToyBox';
 import { assetLoader, AssetLoadStatus } from './services/AssetLoader';
+import { validateDisplayName, validateRoomCode } from './services/contentFilter';
 import {
   audioEngine,
   DEFAULT_EPIANO_PARAMS,
@@ -194,6 +195,9 @@ export const App: React.FC = () => {
     hairColor: string;
     hairStyle: HairStyle;
   }) => {
+    if (!validateDisplayName(config.name).valid || !validateRoomCode(config.roomId).valid) {
+      return;
+    }
     audioEngine.init();
 
     const localPlayer: PlayerState = {

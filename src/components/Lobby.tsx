@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, DoorOpen, RotateCw, Sparkles } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, Dices, DoorOpen, RotateCw, Sparkles } from 'lucide-react';
 import { HAIR_COLORS, HAIR_STYLES, SHIRT_COLORS, SKIN_TONES } from '../assets/assetManifest';
 import { AssetLoadStatus } from '../services/AssetLoader';
+import { generateRoomCode, validateDisplayName, validateRoomCode } from '../services/contentFilter';
 import { drawPixelAvatar } from '../services/SpriteRenderer';
 import { FacingDirection, HairStyle } from '../types';
 
@@ -25,8 +26,10 @@ interface LobbyProps {
 }
 
 export const Lobby: React.FC<LobbyProps> = ({ assetStatus, onEnterRoom }) => {
-  const [name, setName] = useState('Ben');
-  const [roomId, setRoomId] = useState('OAK-ROOM-01');
+  const [name, setName] = useState('');
+  const [roomId, setRoomId] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [roomError, setRoomError] = useState<string | null>(null);
   const [skinTone, setSkinTone] = useState(SKIN_TONES[1].hex);
   const [shirtColor, setShirtColor] = useState(SHIRT_COLORS[0].hex);
   const [hairColor, setHairColor] = useState(HAIR_COLORS[1].hex);
@@ -63,9 +66,20 @@ export const Lobby: React.FC<LobbyProps> = ({ assetStatus, onEnterRoom }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const nameCheck = validateDisplayName(name);
+    const roomCheck = validateRoomCode(roomId);
+    setNameError(nameCheck.valid ? null : nameCheck.error ?? 'Invalid display name.');
+    setRoomError(roomCheck.valid ? null : roomCheck.error ?? 'Invalid room code.');
+    if (!nameCheck.valid || !roomCheck.valid) return;
+
     const cleanName = name.trim() || 'Guest';
-    const cleanRoom = roomId.trim().toUpperCase() || 'OAK-ROOM-01';
+    const cleanRoom = roomId.trim().toUpperCase();
     onEnterRoom({ name: cleanName, roomId: cleanRoom, skinTone, shirtColor, hairColor, hairStyle });
+  };
+
+  const handleGenerateCode = () => {
+    setRoomId(generateRoomCode());
+    setRoomError(null);
   };
 
   return (
@@ -119,26 +133,76 @@ export const Lobby: React.FC<LobbyProps> = ({ assetStatus, onEnterRoom }) => {
                   <input
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setName(val);
+                      if (nameError) {
+                        const check = validateDisplayName(val);
+                        setNameError(check.valid ? null : check.error ?? null);
+                      }
+                    }}
                     maxLength={20}
                     placeholder="Your name"
-                    className="w-full px-3 py-2 rounded-lg bg-[#231209] border border-[#8b552c] text-[#faedcd] placeholder-[#d4a373]/40 focus:outline-none focus:border-[#e09f3e]"
+                    className={`w-full px-3 py-2 rounded-lg bg-[#231209] border text-[#faedcd] placeholder-[#d4a373]/40 focus:outline-none ${
+                      nameError
+                        ? 'border-[#d9534f] focus:border-[#d9534f]'
+                        : 'border-[#8b552c] focus:border-[#e09f3e]'
+                    }`}
                   />
+                  {nameError && (
+                    <span className="mt-1 flex items-start gap-1 text-[11px] text-[#f28b82]">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                      <span>{nameError}</span>
+                    </span>
+                  )}
                 </label>
 
-                <label className="block">
-                  <span className="block text-xs font-semibold uppercase tracking-wider text-[#d4a373] mb-1">
-                    Room Code
-                  </span>
+                <div className="block">
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="room-code-input"
+                      className="text-xs font-semibold uppercase tracking-wider text-[#d4a373]"
+                    >
+                      Room Code
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateCode}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#e09f3e] hover:text-[#faedcd] transition-colors"
+                      title="Generate a unique private room code"
+                    >
+                      <Dices className="w-3.5 h-3.5" />
+                      New Code
+                    </button>
+                  </div>
                   <input
+                    id="room-code-input"
                     type="text"
                     value={roomId}
-                    onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setRoomId(val);
+                      if (roomError) {
+                        const check = validateRoomCode(val);
+                        setRoomError(check.valid ? null : check.error ?? null);
+                      }
+                    }}
                     maxLength={20}
-                    placeholder="OAK-ROOM-01"
-                    className="w-full px-3 py-2 rounded-lg bg-[#231209] border border-[#8b552c] text-[#faedcd] font-mono uppercase placeholder-[#d4a373]/40 focus:outline-none focus:border-[#e09f3e]"
+                    placeholder="Enter or generate code"
+                    autoComplete="off"
+                    className={`w-full px-3 py-2 rounded-lg bg-[#231209] border text-[#faedcd] font-mono uppercase placeholder-[#d4a373]/40 focus:outline-none ${
+                      roomError
+                        ? 'border-[#d9534f] focus:border-[#d9534f]'
+                        : 'border-[#8b552c] focus:border-[#e09f3e]'
+                    }`}
                   />
-                </label>
+                  {roomError && (
+                    <span className="mt-1 flex items-start gap-1 text-[11px] text-[#f28b82]">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                      <span>{roomError}</span>
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Skin Tone */}
