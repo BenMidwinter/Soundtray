@@ -561,83 +561,81 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content: Playable Room Stage + Dedicated Bottom Dock Band */}
-      <main className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
-        <div className="relative flex-1 min-h-0 w-full">
-          <GameCanvas
-            localPlayerId={localPlayerId}
-            players={snapshot.players}
-            items={snapshot.items}
-            pet={snapshot.pet}
-            pruEnabled={snapshot.settings.pruEnabled}
-            timeOfDay={snapshot.settings.timeOfDay}
-            pruHeartAt={snapshot.pruHeartAt}
-            buildMode={buildMode}
-            selectedAssetId={selectedAssetId}
-            placeFlipped={placeFlipped}
-            activeInstrumentId={activeInstrumentId}
-            isModalOpen={isModalOpen}
-            onUpdateLocalPlayer={(player) => roomTransport.updateLocalPlayer(player)}
-            onUpdatePet={(pet) => roomTransport.updatePet(pet)}
-            onPlaceItem={(assetId, x, y, flipped) => {
-              void assetLoader.loadOne(assetId);
-              roomTransport.placeItem({
-                id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                assetId,
-                x,
-                y,
-                flipped: flipped || undefined,
-              });
-            }}
-            onMoveItem={(itemId, x, y) => roomTransport.moveItem(itemId, x, y)}
-            onFinishMoveItem={(itemId) => {
-              const moved = snapshot.items.find((i) => i.id === itemId);
-              if (!moved) return;
-              const label = ASSET_MAP[moved.assetId]?.name ?? moved.assetId;
-              roomTransport.recordEvent(
-                'ITEM_MOVE',
-                `${snapshot.players[localPlayerId]?.name || 'Guest'} moved ${label}`,
-                { assetId: moved.assetId }
-              );
-            }}
-            onFlipItem={(itemId) => roomTransport.flipItem(itemId)}
-            onRemoveItem={(itemId) => roomTransport.removeItem(itemId)}
-            onOpenInstrument={(itemId) => {
-              audioEngine.unlock();
-              const target = snapshot.items.find((i) => i.id === itemId);
-              const label = target ? ASSET_MAP[target.assetId]?.name ?? target.assetId : 'instrument';
-              roomTransport.setLocalActiveInstrument(itemId);
-              roomTransport.recordEvent(
-                'INSTRUMENT_OPEN',
-                `${snapshot.players[localPlayerId]?.name || 'Guest'} started playing ${label}`,
-                { assetId: target?.assetId }
-              );
-              setActiveInstrumentId(itemId);
-            }}
-            onOpenGame={(gameId) => {
-              audioEngine.unlock();
-              setActiveGame(gameId);
-            }}
-            onInteractPru={() => {
-              audioEngine.unlock();
-              audioEngine.playUiCue('pru_happy');
-              roomTransport.interactWithPru();
-            }}
-            onClearSelectedAsset={() => setSelectedAssetId(null)}
-            onToast={showToast}
-          />
+      {/* Main Content: Rock-Steady Room Stage + Bottom Overlay Docks (never shifts or resizes room) */}
+      <main className="relative flex-1 min-h-0 overflow-hidden">
+        <GameCanvas
+          localPlayerId={localPlayerId}
+          players={snapshot.players}
+          items={snapshot.items}
+          pet={snapshot.pet}
+          pruEnabled={snapshot.settings.pruEnabled}
+          timeOfDay={snapshot.settings.timeOfDay}
+          pruHeartAt={snapshot.pruHeartAt}
+          buildMode={buildMode}
+          selectedAssetId={selectedAssetId}
+          placeFlipped={placeFlipped}
+          activeInstrumentId={activeInstrumentId}
+          isModalOpen={isModalOpen}
+          onUpdateLocalPlayer={(player) => roomTransport.updateLocalPlayer(player)}
+          onUpdatePet={(pet) => roomTransport.updatePet(pet)}
+          onPlaceItem={(assetId, x, y, flipped) => {
+            void assetLoader.loadOne(assetId);
+            roomTransport.placeItem({
+              id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              assetId,
+              x,
+              y,
+              flipped: flipped || undefined,
+            });
+          }}
+          onMoveItem={(itemId, x, y) => roomTransport.moveItem(itemId, x, y)}
+          onFinishMoveItem={(itemId) => {
+            const moved = snapshot.items.find((i) => i.id === itemId);
+            if (!moved) return;
+            const label = ASSET_MAP[moved.assetId]?.name ?? moved.assetId;
+            roomTransport.recordEvent(
+              'ITEM_MOVE',
+              `${snapshot.players[localPlayerId]?.name || 'Guest'} moved ${label}`,
+              { assetId: moved.assetId }
+            );
+          }}
+          onFlipItem={(itemId) => roomTransport.flipItem(itemId)}
+          onRemoveItem={(itemId) => roomTransport.removeItem(itemId)}
+          onOpenInstrument={(itemId) => {
+            audioEngine.unlock();
+            const target = snapshot.items.find((i) => i.id === itemId);
+            const label = target ? ASSET_MAP[target.assetId]?.name ?? target.assetId : 'instrument';
+            roomTransport.setLocalActiveInstrument(itemId);
+            roomTransport.recordEvent(
+              'INSTRUMENT_OPEN',
+              `${snapshot.players[localPlayerId]?.name || 'Guest'} started playing ${label}`,
+              { assetId: target?.assetId }
+            );
+            setActiveInstrumentId(itemId);
+          }}
+          onOpenGame={(gameId) => {
+            audioEngine.unlock();
+            setActiveGame(gameId);
+          }}
+          onInteractPru={() => {
+            audioEngine.unlock();
+            audioEngine.playUiCue('pru_happy');
+            roomTransport.interactWithPru();
+          }}
+          onClearSelectedAsset={() => setSelectedAssetId(null)}
+          onToast={showToast}
+        />
 
-          {/* Toast Notification */}
-          {toast && (
-            <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-[#2b150a]/95 border border-[#e09f3e] text-xs font-semibold text-[#faedcd] shadow-xl z-30">
-              {toast}
-            </div>
-          )}
-        </div>
+        {/* Toast Notification */}
+        {toast && (
+          <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-[#2b150a]/95 border border-[#e09f3e] text-xs font-semibold text-[#faedcd] shadow-xl z-30">
+            {toast}
+          </div>
+        )}
 
-        {/* Dedicated Bottom Dock Band (never clipped on iPad Safari, never covers the room floor) */}
+        {/* Bottom Overlay Dock: Toy Box, Instrument Dock, or Subtle Play Hint (pinned within 100dvh) */}
         {buildMode ? (
-          <div className="flex-shrink-0 w-full px-2 sm:px-3 pt-1 pb-safe z-20">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 sm:px-3 pb-safe z-20">
             <ToyBox
               selectedAssetId={selectedAssetId}
               placeFlipped={placeFlipped}
@@ -654,7 +652,7 @@ export const App: React.FC = () => {
             />
           </div>
         ) : activeItem && activeAssetDef?.instrumentVoice ? (
-          <div className="flex-shrink-0 w-full px-2 sm:px-3 pt-1 pb-safe z-20">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 sm:px-3 pb-safe z-20">
             <InstrumentDock
               instrumentName={activeAssetDef.name}
               instrumentVoice={activeAssetDef.instrumentVoice}
@@ -669,8 +667,8 @@ export const App: React.FC = () => {
             />
           </div>
         ) : !isModalOpen ? (
-          <div className="flex-shrink-0 w-full px-2 pt-0.5 pb-safe flex justify-center">
-            <div className="pointer-events-none px-3 py-1 rounded-full bg-[#231209]/90 border border-[#8b552c]/70 text-[11px] text-[#d4a373] shadow text-center">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 pb-safe flex justify-center z-10">
+            <div className="px-3 py-1 rounded-full bg-[#231209]/90 border border-[#8b552c]/70 text-[11px] text-[#d4a373] shadow text-center">
               <strong className="text-[#faedcd]">Tap</strong> the floor to move · Walk up and{' '}
               <strong className="text-[#faedcd]">tap</strong> an instrument, game, or Pru
               <span className="hidden lg:inline">
