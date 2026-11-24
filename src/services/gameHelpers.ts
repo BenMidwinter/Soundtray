@@ -307,7 +307,10 @@ export function sanitizePet(raw: Partial<PetState> | null | undefined): PetState
     targetX: typeof raw.targetX === 'number' ? raw.targetX : def.targetX,
     targetY: typeof raw.targetY === 'number' ? raw.targetY : def.targetY,
     facing: raw.facing === 'left' ? 'left' : 'right',
-    behavior: raw.behavior === 'walk' || raw.behavior === 'sleep' ? raw.behavior : 'idle',
+    behavior:
+      raw.behavior === 'walk' || raw.behavior === 'sit' || raw.behavior === 'sleep'
+        ? raw.behavior
+        : 'idle',
     stateDurationMs: dur,
     updatedAt: raw.updatedAt ?? Date.now(),
     stateEndsAt: performance.now() + dur,

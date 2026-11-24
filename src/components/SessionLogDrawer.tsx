@@ -13,6 +13,7 @@ const BADGE_STYLE: Record<SessionEventType, string> = {
   PLAYER_LEAVE: 'bg-stone-800 text-stone-300 border-stone-600/60',
   INSTRUMENT_OPEN: 'bg-amber-900/70 text-amber-200 border-amber-700/60',
   INSTRUMENT_CLOSE: 'bg-amber-950/70 text-amber-300/80 border-amber-800/50',
+  INSTRUMENT_PERFORMANCE: 'bg-amber-800/85 text-amber-100 border-amber-500/75',
   ITEM_PLACE: 'bg-sky-900/70 text-sky-200 border-sky-700/60',
   ITEM_MOVE: 'bg-sky-950/70 text-sky-300 border-sky-800/60',
   ITEM_FLIP: 'bg-sky-950/70 text-sky-300 border-sky-800/60',
@@ -97,31 +98,42 @@ export const SessionLogDrawer: React.FC<SessionLogDrawerProps> = ({
             No session events recorded yet.
           </p>
         ) : (
-          [...events].reverse().map((evt) => (
-            <div
-              key={evt.id}
-              className="bg-[#3b1d0e]/70 border border-[#8b552c]/50 rounded-lg p-2.5 space-y-1"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
-                    BADGE_STYLE[evt.type]
-                  }`}
-                >
-                  {evt.type}
-                </span>
-                <span className="text-[10px] font-mono text-[#d4a373]/75">
-                  {formatTime(evt.timestamp)}
-                </span>
+          [...events].reverse().map((evt) => {
+            const transcript =
+              typeof evt.payload?.transcript === 'string' && evt.payload.transcript.length > 0
+                ? evt.payload.transcript
+                : null;
+            return (
+              <div
+                key={evt.id}
+                className="bg-[#3b1d0e]/70 border border-[#8b552c]/50 rounded-lg p-2.5 space-y-1.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                      BADGE_STYLE[evt.type]
+                    }`}
+                  >
+                    {evt.type}
+                  </span>
+                  <span className="text-[10px] font-mono text-[#d4a373]/75">
+                    {formatTime(evt.timestamp)}
+                  </span>
+                </div>
+                <p className="text-xs text-[#faedcd] leading-snug">{evt.summary}</p>
+                {transcript && (
+                  <p className="text-[10px] font-mono leading-relaxed text-[#f4d38a]/90 bg-[#1f0e06]/85 border border-[#8b552c]/45 rounded-md p-2 max-h-24 overflow-y-auto break-words">
+                    {transcript}
+                  </p>
+                )}
               </div>
-              <p className="text-xs text-[#faedcd] leading-snug">{evt.summary}</p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
       <div className="px-3 py-2 bg-[#1f0e06] border-t border-[#8b552c]/50 text-[10px] text-[#d4a373]/80">
-        Records high-level room events only (no raw 60fps coordinates or individual keypress floods).
+        Captures room events and grouped timestamped musical passages per instrument turn.
       </div>
     </aside>
   );

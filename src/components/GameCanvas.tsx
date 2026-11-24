@@ -10,7 +10,89 @@ import {
 import { assetLoader } from '../services/AssetLoader';
 import { AtmosphereState } from '../services/AtmosphereRenderer';
 import { drawPixelAvatar, drawPru } from '../services/SpriteRenderer';
-import { FacingDirection, PetState, PlayerState, RoomItem, TimeOfDay, Vector2 } from '../types';
+import {
+  FacingDirection,
+  PetBehavior,
+  PetState,
+  PlayerState,
+  RoomItem,
+  TimeOfDay,
+  Vector2,
+} from '../types';
+
+interface PruTimeProfile {
+  walkSpeed: number;
+  /** Weighted probabilities when choosing the next behaviour from a stationary state */
+  weights: Record<PetBehavior, number>;
+  /** Weighted probabilities for resting pose immediately after finishing a walk */
+  afterWalkWeights: Record<Exclude<PetBehavior, 'walk'>, number>;
+  durationsMs: Record<Exclude<PetBehavior, 'walk'>, [number, number]>;
+}
+
+/**
+ * Time-of-Day scripted personality for Pru:
+ * - Morning: lively, quicker trot & wag, mostly exploring with brief pauses
+ * - Day: cozy baseline mix of wandering, idling, sitting, and occasional naps
+ * - Sunset: gentler stroll, winding down and sitting to watch the room
+ * - Night: slow amble on rare trips, mostly curled up sleeping with quiet sits
+ */
+const PRU_TIME_PROFILES: Record<TimeOfDay, PruTimeProfile> = {
+  morning: {
+    walkSpeed: 0.112,
+    weights: { walk: 0.74, idle: 0.16, sit: 0.08, sleep: 0.02 },
+    afterWalkWeights: { idle: 0.62, sit: 0.30, sleep: 0.08 },
+    durationsMs: {
+      idle: [1800, 3200],
+      sit: [2200, 4000],
+      sleep: [4500, 7500],
+    },
+  },
+  day: {
+    walkSpeed: 0.075,
+    weights: { walk: 0.55, idle: 0.20, sit: 0.13, sleep: 0.12 },
+    afterWalkWeights: { idle: 0.44, sit: 0.26, sleep: 0.30 },
+    durationsMs: {
+      idle: [3200, 6200],
+      sit: [4000, 7200],
+      sleep: [8500, 13500],
+    },
+  },
+  sunset: {
+    walkSpeed: 0.056,
+    weights: { walk: 0.24, idle: 0.14, sit: 0.42, sleep: 0.20 },
+    afterWalkWeights: { idle: 0.22, sit: 0.54, sleep: 0.24 },
+    durationsMs: {
+      idle: [3500, 6500],
+      sit: [6500, 11500],
+      sleep: [10000, 15500],
+    },
+  },
+  night: {
+    walkSpeed: 0.048,
+    weights: { walk: 0.12, idle: 0.08, sit: 0.18, sleep: 0.62 },
+    afterWalkWeights: { idle: 0.12, sit: 0.24, sleep: 0.64 },
+    durationsMs: {
+      idle: [3500, 6000],
+      sit: [6000, 10000],
+      sleep: [14000, 23000],
+    },
+  },
+};
+
+function pickWeighted<T extends string>(weights: Record<T, number>): T {
+  const entries = Object.entries(weights) as Array<[T, number]>;
+  const total = entries.reduce((sum, [, w]) => sum + w, 0);
+  let r = Math.random() * total;
+  for (const [key, w] of entries) {
+    r -= w;
+    if (r <= 0) return key;
+  }
+  return entries[0][0];
+}
+
+function randomInRange([min, max]: [number, number]): number {
+  return min + Math.random() * (max - min);
+}
 
 function isFlippableAsset(assetId: string): boolean {
   const def = ASSET_MAP[assetId];
@@ -166,6 +248,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
 
   // Synced Pru state: update local target/behavior whenever remote keeper publishes a new pet command
   const lastPetUpdatedAtRef = useRef<number>(0);
+  const prevTimeOfDayRef = useRef<TimeOfDay>(props.timeOfDay);
+  useEffect(() => {
+    if (prevTimeOfDayRef.current !== props.timeOfDay) {
+      prevTimeOfDayRef.current = props.timeOfDay;
+      // Gently shorten Pru's remaining timer so she responds naturally within ~2s of a lighting switch
+      if (pruRef.current.behavior !== 'walk') {
+        pruRef.current.stateEndsAt = Math.min(pruRef.current.stateEndsAt, performance.now() + 2000);
+      }
+    }
+  }, [props.timeOfDay]);
   useEffect(() => {
     const incoming = props.pet;
     if (incoming.updatedAt && incoming.updatedAt !== lastPetUpdatedAtRef.current) {
@@ -406,7 +498,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
       if (pruEnabled) {
         const sortedIds = Object.keys(players).sort();
         const isPruKeeper = sortedIds.length === 0 || sortedIds[0] === localPlayerId;
-        updatePru(pruRef.current, dt, now, isPruKeeper);
+        updatePru(pruRef.current, dt, now, isPruKeeper, timeOfDay);
       }
 
       // 4. Render Scene
@@ -418,6 +510,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
           players,
           items,
           pruEnabled,
+          timeOfDay,
           pruHeartAt,
           buildMode,
           selectedAssetId,
@@ -434,7 +527,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
-  const updatePru = (pru: PetState, dt: number, now: number, isKeeper: boolean) => {
+  const updatePru = (
+    pru: PetState,
+    dt: number,
+    now: number,
+    isKeeper: boolean,
+    timeOfDay: TimeOfDay
+  ) => {
+    const profile = PRU_TIME_PROFILES[timeOfDay];
+
     if (pru.behavior === 'walk') {
       const dx = pru.targetX - pru.x;
       const dy = pru.targetY - pru.y;
@@ -443,11 +544,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
         pru.x = pru.targetX;
         pru.y = pru.targetY;
         if (isKeeper) {
-          const nextBehavior = Math.random() < 0.45 ? 'sleep' : 'idle';
-          const dur =
-            nextBehavior === 'sleep'
-              ? 9000 + Math.random() * 6000
-              : 3500 + Math.random() * 3500;
+          const nextBehavior = pickWeighted(profile.afterWalkWeights);
+          const dur = randomInRange(profile.durationsMs[nextBehavior]);
           pru.behavior = nextBehavior;
           pru.stateDurationMs = dur;
           pru.stateEndsAt = now + dur;
@@ -458,14 +556,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
           pru.behavior = 'idle';
         }
       } else {
-        const speed = 0.075 * dt;
+        const speed = profile.walkSpeed * dt;
         const next = clampToFloor(pru.x + (dx / dist) * speed, pru.y + (dy / dist) * speed, 0.05);
         pru.x = next.x;
         pru.y = next.y;
         pru.facing = dx < 0 ? 'left' : 'right';
       }
     } else if (isKeeper && now >= pru.stateEndsAt) {
-      if (Math.random() < 0.65) {
+      const nextBehavior = pickWeighted(profile.weights);
+      if (nextBehavior === 'walk') {
         const randY = 0.65 + Math.random() * 0.27;
         const randX = 0.24 + Math.random() * 0.52;
         const clamped = clampToFloor(randX, randY, 0.06);
@@ -473,11 +572,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
         pru.targetY = clamped.y;
         pru.facing = clamped.x < pru.x ? 'left' : 'right';
         pru.behavior = 'walk';
-        pru.stateDurationMs = 6000;
-        pru.stateEndsAt = now + 6000;
+        pru.stateDurationMs = 7000;
+        pru.stateEndsAt = now + 7000;
       } else {
-        const dur = 5000 + Math.random() * 5000;
-        pru.behavior = pru.behavior === 'sleep' ? 'idle' : 'sleep';
+        const dur = randomInRange(profile.durationsMs[nextBehavior]);
+        pru.behavior = nextBehavior;
         pru.stateDurationMs = dur;
         pru.stateEndsAt = now + dur;
       }
@@ -495,6 +594,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
       players: Record<string, PlayerState>;
       items: RoomItem[];
       pruEnabled: boolean;
+      timeOfDay: TimeOfDay;
       pruHeartAt?: number;
       buildMode: boolean;
       selectedAssetId: string | null;
@@ -672,7 +772,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = (props) => {
         draw: (c) => {
           const px = pru.x * W;
           const py = pru.y * H;
-          drawPru(c, pru, px, py, 1.0, now);
+          drawPru(c, pru, px, py, 1.0, now, state.timeOfDay);
           if (state.pruHeartAt && now - state.pruHeartAt < 1400) {
             const age = (now - state.pruHeartAt) / 1400;
             c.save();

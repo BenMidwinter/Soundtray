@@ -77,7 +77,7 @@ export interface PlayerState {
   lastActiveNoteAt?: number;
 }
 
-export type PetBehavior = 'idle' | 'walk' | 'sleep';
+export type PetBehavior = 'idle' | 'walk' | 'sit' | 'sleep';
 
 export interface PetState {
   name: string;
@@ -208,6 +208,7 @@ export type SessionEventType =
   | 'PLAYER_LEAVE'
   | 'INSTRUMENT_OPEN'
   | 'INSTRUMENT_CLOSE'
+  | 'INSTRUMENT_PERFORMANCE'
   | 'ITEM_PLACE'
   | 'ITEM_MOVE'
   | 'ITEM_FLIP'
@@ -225,6 +226,21 @@ export type SessionEventType =
   | 'MEMORY_WIN'
   | 'MEMORY_RESET'
   | 'PET_INTERACT';
+
+export interface RecordedPerformanceNote {
+  /** Note name (e.g. "C4", "Eb5") or drum/percussion pad label (e.g. "Kick", "Snare") */
+  note: string;
+  /** MIDI pitch for melodic instruments */
+  midi?: number;
+  /** Pad index (0..7) for drums / percussion */
+  pad?: number;
+  /** UTC epoch ms when the note was struck */
+  at: number;
+  /** Milliseconds elapsed since the start of this instrument turn */
+  offsetMs: number;
+  /** Hold duration in milliseconds (populated when note is released or bout finishes) */
+  durationMs?: number;
+}
 
 export interface SessionEvent {
   id: string;

@@ -1,4 +1,4 @@
-import { HairStyle, PetState, PlayerState } from '../types';
+import { HairStyle, PetState, PlayerState, TimeOfDay } from '../types';
 
 function hexToRgb(hex: string): [number, number, number] {
   const clean = hex.replace('#', '');
@@ -722,6 +722,38 @@ const PRU_WALK_A = [
   '......................',
 ];
 
+const PRU_SIT_A = [
+  '.............OOO......',
+  '............OEKTO.....',
+  '...........OEBKTLO....',
+  '..........OEBKTLTLO...',
+  '.........OOKKBTLLWKO..',
+  '........OOKKKDWKTTWOO.',
+  '.......OOKKKKKDWKOO...',
+  '......OOWGWWKKKWWO....',
+  '.....OWWGGWWKKKWWOO...',
+  'OO..OWSWWWGWWKKWWO....',
+  'WWOOOWWWWWWKKKKWO.....',
+  '.OKKKOWSWWWOOOWWO.....',
+  '..OOOOOOWWOO..OO......',
+];
+
+const PRU_SIT_B = [
+  '.............OOO......',
+  '............OEKTO.....',
+  '...........OEBKTLO....',
+  '..........OEBKTLTLO...',
+  '.........OOKKBTLLWKO..',
+  '........OOKKKDWKTTWOO.',
+  '.......OOKKKKKDWKOO...',
+  '......OOWGWWKKKWWO....',
+  'O....OWWGGWWKKKWWOO...',
+  'WOO.OWSWWWGWWKKWWO....',
+  '.WKKOOWWWWWKKKKWO.....',
+  '..OOKOWSWWWOOOWWO.....',
+  '....OOOOWWOO..OO......',
+];
+
 const PRU_SLEEP = [
   '....OOOOOOOO.....',
   '..OOWWGWKKKKOO...',
@@ -733,16 +765,25 @@ const PRU_SLEEP = [
   '.....OOOOOOO.....',
 ];
 
+const PRU_ANIM_CADENCE: Record<TimeOfDay, { walkMs: number; wagMs: number; sitWagMs: number }> = {
+  morning: { walkMs: 115, wagMs: 260, sitWagMs: 440 },
+  day: { walkMs: 160, wagMs: 420, sitWagMs: 650 },
+  sunset: { walkMs: 210, wagMs: 560, sitWagMs: 880 },
+  night: { walkMs: 250, wagMs: 720, sitWagMs: 1100 },
+};
+
 export function drawPru(
   ctx: CanvasRenderingContext2D,
   pru: PetState,
   x: number,
   y: number,
   scale: number,
-  nowMs: number
+  nowMs: number,
+  timeOfDay: TimeOfDay = 'day'
 ): void {
   const p = Math.max(2, Math.round(3 * scale));
   const dir = pru.facing === 'left' ? -1 : 1;
+  const cadence = PRU_ANIM_CADENCE[timeOfDay];
 
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y));
@@ -750,6 +791,9 @@ export function drawPru(
   if (pru.behavior === 'sleep') {
     ctx.fillStyle = 'rgba(24, 10, 3, 0.34)';
     ctx.fillRect(-p * 8, -p * 1, p * 16, p * 2);
+  } else if (pru.behavior === 'sit') {
+    ctx.fillStyle = 'rgba(24, 10, 3, 0.32)';
+    ctx.fillRect(dir > 0 ? -p * 7 : -p * 7, -p * 1, p * 14, p * 2);
   } else {
     ctx.fillStyle = 'rgba(24, 10, 3, 0.32)';
     ctx.fillRect(dir > 0 ? -p * 6 : -p * 8, -p * 1, p * 14, p * 2);
@@ -760,13 +804,16 @@ export function drawPru(
 
   if (pru.behavior === 'sleep') {
     drawPixelGrid(ctx, PRU_SLEEP, PRU_PALETTE, p);
+  } else if (pru.behavior === 'sit') {
+    const sitFrame = Math.floor(nowMs / cadence.sitWagMs) % 2;
+    drawPixelGrid(ctx, sitFrame === 0 ? PRU_SIT_A : PRU_SIT_B, PRU_PALETTE, p);
   } else if (pru.behavior === 'walk') {
-    const frame = Math.floor(nowMs / 160) % 2;
-    const bounce = frame === 0 ? -p * 0.5 : 0;
+    const frame = Math.floor(nowMs / cadence.walkMs) % 2;
+    const bounce = frame === 0 ? -p * (timeOfDay === 'morning' ? 0.75 : 0.5) : 0;
     ctx.translate(0, Math.round(bounce));
     drawPixelGrid(ctx, frame === 0 ? PRU_WALK_A : PRU_IDLE_B, PRU_PALETTE, p);
   } else {
-    const wagFrame = Math.floor(nowMs / 420) % 2;
+    const wagFrame = Math.floor(nowMs / cadence.wagMs) % 2;
     drawPixelGrid(ctx, wagFrame === 0 ? PRU_IDLE_A : PRU_IDLE_B, PRU_PALETTE, p);
   }
 

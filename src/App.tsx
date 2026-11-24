@@ -30,6 +30,9 @@ import { validateDisplayName, validateRoomCode } from './services/contentFilter'
 import {
   audioEngine,
   DEFAULT_EPIANO_PARAMS,
+  DRUM_PAD_LABELS,
+  midiToNoteName,
+  PERCUSSION_PAD_LABELS,
   ROOT_NOTES,
   scaleIndexToMidi,
   SCALES,
@@ -46,11 +49,53 @@ import {
   AudioSignal,
   EPianoParams,
   HairStyle,
+  InstrumentVoiceId,
   PlayerState,
+  RecordedPerformanceNote,
   RoomSnapshot,
   ScaleId,
   TimeOfDay,
 } from './types';
+
+interface ActivePerformanceBout {
+  itemId: string;
+  assetId: string;
+  instrumentName: string;
+  instrumentVoice: InstrumentVoiceId;
+  startedAt: number;
+  rootMidi: number;
+  scaleId: ScaleId;
+  part: number;
+  notes: RecordedPerformanceNote[];
+  openNoteSlots: Map<number, number>;
+}
+
+const MAX_NOTES_PER_BOUT = 250;
+
+function formatClockTenths(ts: number): string {
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  const tenths = Math.floor(d.getMilliseconds() / 100);
+  return `${hh}:${mm}:${ss}.${tenths}`;
+}
+
+function buildPerformanceTranscript(
+  notes: RecordedPerformanceNote[],
+  isPercussive: boolean
+): string {
+  return notes
+    .map((n) => {
+      const stamp = `[${formatClockTenths(n.at)}]`;
+      if (isPercussive || n.durationMs === undefined) {
+        return `${stamp} ${n.note}`;
+      }
+      const durSec = Math.max(0.05, n.durationMs / 1000).toFixed(2);
+      return `${stamp} ${n.note} (${durSec}s)`;
+    })
+    .join(', ');
+}
 
 const TIME_OPTIONS: Array<{
   id: TimeOfDay;
@@ -97,6 +142,7 @@ export const App: React.FC = () => {
   const toastTimerRef = useRef<number | null>(null);
   const prevConnect4WinnerRef = useRef<0 | 1 | 2 | 'draw'>(0);
   const prevTttWinnerRef = useRef<0 | 1 | 2 | 'draw'>(0);
+  const activeBoutRef = useRef<ActivePerformanceBout | null>(null);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -219,7 +265,85 @@ export const App: React.FC = () => {
     setInRoom(true);
   };
 
+  const flushPerformanceBout = useCallback(
+    (isCheckpoint = false) => {
+      const bout = activeBoutRef.current;
+      if (!bout) return;
+
+      const endedAt = Date.now();
+      const isPercussive =
+        bout.instrumentVoice === 'drums' || bout.instrumentVoice === 'percussion';
+
+      // Close any notes still held down when stepping back / checkpointing
+      if (!isPercussive && bout.openNoteSlots.size > 0) {
+        for (const noteIdx of bout.openNoteSlots.values()) {
+          const entry = bout.notes[noteIdx];
+          if (entry && entry.durationMs === undefined) {
+            entry.durationMs = Math.max(10, endedAt - entry.at);
+          }
+        }
+        bout.openNoteSlots.clear();
+      }
+
+      const actor = snapshot.players[localPlayerId]?.name || 'Guest';
+      const durationMs = Math.max(0, endedAt - bout.startedAt);
+      const durationSec = Math.max(1, Math.round(durationMs / 1000));
+      const rootLabel =
+        ROOT_NOTES.find((r) => r.midi === bout.rootMidi)?.label ?? midiToNoteName(bout.rootMidi);
+      const scaleLabel = SCALES[bout.scaleId]?.label ?? bout.scaleId;
+      const notesCopy = bout.notes.map((n) => ({ ...n }));
+      const transcript = buildPerformanceTranscript(notesCopy, isPercussive);
+      const unit = isPercussive ? 'hit' : 'note';
+      const plural = notesCopy.length === 1 ? '' : 's';
+
+      let summary: string;
+      if (notesCopy.length === 0) {
+        summary = `${actor} stepped back from ${bout.instrumentName} (no notes played)`;
+      } else if (isCheckpoint) {
+        summary = isPercussive
+          ? `${actor} played ${bout.instrumentName} (${notesCopy.length} ${unit}${plural}, part ${bout.part})`
+          : `${actor} played ${bout.instrumentName} (${notesCopy.length} ${unit}${plural} in ${rootLabel} ${scaleLabel}, part ${bout.part})`;
+      } else {
+        summary = isPercussive
+          ? `${actor} played ${bout.instrumentName} for ${durationSec}s (${notesCopy.length} ${unit}${plural}) and stepped back`
+          : `${actor} played ${bout.instrumentName} for ${durationSec}s (${notesCopy.length} ${unit}${plural} in ${rootLabel} ${scaleLabel}) and stepped back`;
+      }
+
+      roomTransport.recordEvent('INSTRUMENT_PERFORMANCE', summary, {
+        assetId: bout.assetId,
+        instrument: bout.instrumentVoice,
+        instrumentName: bout.instrumentName,
+        startedAt: bout.startedAt,
+        endedAt,
+        durationMs,
+        rootMidi: bout.rootMidi,
+        rootLabel,
+        scaleId: bout.scaleId,
+        scaleLabel,
+        part: bout.part,
+        ...(isCheckpoint ? { continued: true } : {}),
+        noteCount: notesCopy.length,
+        transcript,
+        notes: notesCopy,
+      });
+
+      if (isCheckpoint) {
+        activeBoutRef.current = {
+          ...bout,
+          startedAt: endedAt,
+          part: bout.part + 1,
+          notes: [],
+          openNoteSlots: new Map(),
+        };
+      } else {
+        activeBoutRef.current = null;
+      }
+    },
+    [localPlayerId, snapshot.players]
+  );
+
   const handleConfirmLeaveRoom = () => {
+    flushPerformanceBout(false);
     audioEngine.releaseAllForSource(localPlayerId);
     roomTransport.disconnect();
     setActiveInstrumentId(null);
@@ -253,7 +377,9 @@ export const App: React.FC = () => {
   const activeAssetDef = activeItem ? ASSET_MAP[activeItem.assetId] : null;
 
   const handleCloseInstrument = useCallback(() => {
-    if (activeAssetDef) {
+    if (activeBoutRef.current) {
+      flushPerformanceBout(false);
+    } else if (activeAssetDef) {
       roomTransport.recordEvent(
         'INSTRUMENT_CLOSE',
         `${snapshot.players[localPlayerId]?.name || 'Guest'} stepped back from ${activeAssetDef.name}`,
@@ -263,11 +389,12 @@ export const App: React.FC = () => {
     audioEngine.releaseAllForSource(localPlayerId);
     roomTransport.setLocalActiveInstrument(null);
     setActiveInstrumentId(null);
-  }, [activeAssetDef, localPlayerId, snapshot.players]);
+  }, [activeAssetDef, flushPerformanceBout, localPlayerId, snapshot.players]);
 
   const handleTriggerNoteOn = useCallback(
     (noteIndex: number, octaveShift: number) => {
       if (!activeAssetDef?.instrumentVoice) return;
+      const now = Date.now();
       const midiNote = scaleIndexToMidi(
         snapshot.settings.rootMidi + octaveShift * 12,
         snapshot.settings.scaleId,
@@ -282,23 +409,67 @@ export const App: React.FC = () => {
         midiNote,
         velocity: 0.85,
         epianoParams: activeAssetDef.instrumentVoice === 'epiano' ? epianoParams : undefined,
-        timestamp: Date.now(),
+        timestamp: now,
       };
 
       audioEngine.noteOn(signal);
       roomTransport.sendAudioSignal(signal);
+
+      // Buffer note into the active instrument bout for grouped INSTRUMENT_PERFORMANCE logging
+      const bout = activeBoutRef.current;
+      if (bout) {
+        const isDrums = activeAssetDef.instrumentVoice === 'drums';
+        const isPerc = activeAssetDef.instrumentVoice === 'percussion';
+        const padIdx = ((noteIndex % 8) + 8) % 8;
+        const noteEntry: RecordedPerformanceNote = isDrums
+          ? {
+              note: DRUM_PAD_LABELS[padIdx] ?? `Pad ${padIdx + 1}`,
+              pad: padIdx,
+              at: now,
+              offsetMs: Math.max(0, now - bout.startedAt),
+            }
+          : isPerc
+          ? {
+              note: PERCUSSION_PAD_LABELS[padIdx] ?? `Pad ${padIdx + 1}`,
+              pad: padIdx,
+              at: now,
+              offsetMs: Math.max(0, now - bout.startedAt),
+            }
+          : {
+              note: midiToNoteName(midiNote),
+              midi: midiNote,
+              at: now,
+              offsetMs: Math.max(0, now - bout.startedAt),
+            };
+
+        const idx = bout.notes.push(noteEntry) - 1;
+        if (!isDrums && !isPerc) {
+          bout.openNoteSlots.set(voiceSlot, idx);
+        }
+        if (bout.notes.length >= MAX_NOTES_PER_BOUT) {
+          flushPerformanceBout(true);
+        }
+      }
 
       const me = snapshot.players[localPlayerId];
       if (me) {
         roomTransport.updateLocalPlayer({ ...me, lastActiveNoteAt: performance.now() });
       }
     },
-    [activeAssetDef, epianoParams, localPlayerId, snapshot.players, snapshot.settings]
+    [
+      activeAssetDef,
+      epianoParams,
+      flushPerformanceBout,
+      localPlayerId,
+      snapshot.players,
+      snapshot.settings,
+    ]
   );
 
   const handleTriggerNoteOff = useCallback(
     (noteIndex: number, octaveShift: number) => {
       if (!activeAssetDef?.instrumentVoice) return;
+      const now = Date.now();
       const midiNote = scaleIndexToMidi(
         snapshot.settings.rootMidi + octaveShift * 12,
         snapshot.settings.scaleId,
@@ -312,10 +483,23 @@ export const App: React.FC = () => {
         noteIndex: voiceSlot,
         midiNote,
         velocity: 0,
-        timestamp: Date.now(),
+        timestamp: now,
       };
       audioEngine.noteOff(localPlayerId, activeAssetDef.instrumentVoice, voiceSlot);
       roomTransport.sendAudioSignal(signal);
+
+      // Stamp hold duration onto the matching note in the active performance bout
+      const bout = activeBoutRef.current;
+      if (bout) {
+        const noteIdx = bout.openNoteSlots.get(voiceSlot);
+        if (noteIdx !== undefined) {
+          const entry = bout.notes[noteIdx];
+          if (entry) {
+            entry.durationMs = Math.max(10, now - entry.at);
+          }
+          bout.openNoteSlots.delete(voiceSlot);
+        }
+      }
     },
     [activeAssetDef, localPlayerId, snapshot.settings]
   );
@@ -377,6 +561,7 @@ export const App: React.FC = () => {
             <button
               type="button"
               onClick={() => {
+                if (activeBoutRef.current) flushPerformanceBout(false);
                 setActiveInstrumentId(null);
                 roomTransport.setLocalActiveInstrument(null);
                 audioEngine.releaseAllForSource(localPlayerId);
@@ -603,8 +788,24 @@ export const App: React.FC = () => {
           onRemoveItem={(itemId) => roomTransport.removeItem(itemId)}
           onOpenInstrument={(itemId) => {
             audioEngine.unlock();
+            if (activeBoutRef.current) flushPerformanceBout(false);
             const target = snapshot.items.find((i) => i.id === itemId);
-            const label = target ? ASSET_MAP[target.assetId]?.name ?? target.assetId : 'instrument';
+            const def = target ? ASSET_MAP[target.assetId] : null;
+            const label = def?.name ?? target?.assetId ?? 'instrument';
+            if (target && def?.instrumentVoice) {
+              activeBoutRef.current = {
+                itemId: target.id,
+                assetId: target.assetId,
+                instrumentName: label,
+                instrumentVoice: def.instrumentVoice,
+                startedAt: Date.now(),
+                rootMidi: snapshot.settings.rootMidi,
+                scaleId: snapshot.settings.scaleId,
+                part: 1,
+                notes: [],
+                openNoteSlots: new Map(),
+              };
+            }
             roomTransport.setLocalActiveInstrument(itemId);
             roomTransport.recordEvent(
               'INSTRUMENT_OPEN',
